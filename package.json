@@ -1,5 +1,5 @@
 {
-  "name": "@endless/web-worker",
+  "name": "whatwg-worker",
   "version": "1.0.0",
   "description": "Consistent Web Workers in browser and Node.",
   "type": "module",
@@ -17,22 +17,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jimmywarting/web-worker.git"
+    "url": "git+https://github.com/jimmywarting/whatwg-worker.git"
   },
   "keywords": [
     "worker",
     "worker_threads",
     "webworker",
     "web worker",
-    "web-worker",
     "threads"
   ],
   "author": "Jimmy Wärting <jimmy@warting.se> (https://jimmy.warting.se/opensource)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jimmywarting/web-worker/issues"
+    "url": "https://github.com/jimmywarting/whatwg-worker/issues"
   },
-  "homepage": "https://github.com/jimmywarting/web-worker#readme",
+  "homepage": "https://github.com/jimmywarting/whatwg-worker#readme",
   "funding": [
     {
       "type": "github",
