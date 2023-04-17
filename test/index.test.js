@@ -1,77 +1,149 @@
-/**
- * Copyright 2020 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+import test, * as t from 'node:test'
+import assert from 'node:assert'
+import Worker from '../node-worker.js'
 
-import test from 'ava';
-import Worker from '..';
+const url = new URL('./fixtures/worker.mjs', import.meta.url)
+const one = (worker, t = 'message') => new Promise(rs => worker.addEventListener(t, rs, { once: true }))
+const code = code => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
 
-let worker;
+t.describe('Code evaluation', () => {
+  test('Basic module usage', async t => {
+    const worker = new Worker(url, { type: 'module' })
+    const num = (await one(worker)).data
+    worker.terminate()
+    assert.equal(num, 42, 'should have received a message event')
+  })
 
-function createModuleWorker(url) {
-	const worker = new Worker(url, { type: 'module' });
-	worker.events = [];
-	worker.addEventListener('message', e => {
-		worker.events.push(e);
-	});
-	return worker;
-}
+  test('Omitting { type: "module" } fails', async t => {
+    assert.throws(() => {
+      new Worker(url)
+    }, /only module workers are supported/)
+  })
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+  test('blob:', async t => {
+    const url = code`import fs from 'node:fs'; postMessage(typeof fs.stat)`
 
-test.after.always(t => {
-	if (worker) worker.terminate();
-});
+    const worker = new Worker(url, { type: 'module' })
+    const type = (await one(worker)).data
+    worker.terminate()
+    assert.equal(type, 'function', 'should have received a message event')
+  })
 
-test.serial('instantiation', async t => {
-	worker = createModuleWorker('./test/fixtures/worker.mjs');
-	await sleep(500);
-	t.is(worker.events.length, 1, 'should have received a message event');
-	t.is(worker.events[0].data, 42);
-});
+  test('data:', async t => {
+    const code = 'import fs from \'node:fs\'; postMessage(typeof fs.stat)'
+    const worker = new Worker(`data:text/javascript,${code}`, { type: 'module' })
+    const type = (await one(worker)).data
+    worker.terminate()
+    assert.equal(type, 'function', 'should have received a message event')
+  })
 
-test.serial('postMessage', async t => {
-	// reset events list
-	worker.events.length = 0;
+  test('invalid code dispatch eventListener', async t => {
+    const url = code`a+b`
+    const worker = new Worker(url, { type: 'module' })
+    const err = (await one(worker, 'error')).error
+    worker.terminate()
+    assert.ok(err instanceof Error, 'should have received an error event')
+  })
 
-	const msg = { greeting: 'hello' };
-	worker.postMessage(msg);
-	const timestamp = Date.now();
+  test('invalid code dispatch onerror', async t => {
+    const url = code`a+b`
+    const worker = new Worker(url, { type: 'module' })
+    const err = await new Promise(rs => {
+      worker.onerror = evt => rs(evt.error)
+    })
+    worker.terminate()
+    assert.ok(err instanceof Error, 'should have received an error event')
+  })
 
-	await sleep(500);
+  test('It can echo back a postMessage', async t => {
+    const worker = new Worker(url, { type: 'module' })
+    const msg = { greeting: 'hello' }
+    worker.postMessage(msg)
+    const num = (await one(worker)).data
+    const response = (await one(worker)).data
+    worker.terminate()
+    assert.deepEqual(
+      response,
+      [
+        'received message event',
+        { greeting: 'hello' }
+      ]
+    )
 
-	t.is(worker.events.length, 2, 'should have received two message responses');
-	
-	const first = worker.events[0];
-	t.is(first.data[0], 'received onmessage');
-	t.assert(Math.abs(timestamp - first.data[1]) < 500);
-	t.deepEqual(first.data[2], msg);
-	t.not(first.data[2], msg);
+    assert.equal(num, 42, 'should have received a message event')
+  })
+})
 
-	const second = worker.events[1];
-	t.is(second.data[0], 'received message event');
-	t.assert(Math.abs(timestamp - second.data[1]) < 500);
-	t.deepEqual(second.data[2], msg);
-	t.not(second.data[2], msg);
-});
+// Test to make sure the main thread act as it should.
+t.describe('Main thread', () => {
+  test('worker.onmessage', async t => {
+    const url = code`postMessage(3)`
+    const worker = new Worker(url, { type: 'module' })
+    const type = await new Promise(rs => {
+      worker.onmessage = evt => {
+        rs(evt.data)
+        worker.onmessage = null
+      }
+    })
+    worker.terminate()
+    assert.equal(type, 3, 'should have received a message event')
+  })
 
-test.serial('close', async t => {
-	const worker = new Worker('./test/fixtures/close.mjs', { type: 'module' });
-	// Not emitted in the browser, just for testing
-	const closed = await new Promise((resolve, reject) => {
-		worker.addEventListener('close', () => resolve(true));
-		setTimeout(reject, 500);
-	});
-	t.is(closed, true, 'should have closed itself');
-});
+  test('worker.addEventListener', async t => {
+    const url = code`postMessage(3)`
+    const worker = new Worker(url, { type: 'module' })
+    const { data } = (await one(worker))
+    worker.terminate()
+    assert.equal(data, 3, 'should have received a message event')
+  })
+})
+
+// Test to make sure the worker thread act as it should.
+t.describe('Worker thread', () => {
+  test('addEventListener("message") inside worker works', async t => {
+    const url = code`addEventListener('message', evt => postMessage(evt.data), { once: true })`
+    const worker = new Worker(url, { type: 'module' })
+    worker.postMessage('hello')
+    const { data } = (await one(worker))
+    worker.terminate()
+    assert.equal(data, 'hello', 'should have received a message event')
+  })
+
+  test('self.onmessage inside worker works', async t => {
+    const url = code`self.onmessage = evt => postMessage(evt.data)`
+    const worker = new Worker(url, { type: 'module' })
+    worker.postMessage('hello')
+    const data = await new Promise(rs => {
+      worker.onmessage = evt => rs(evt.data)
+    })
+    worker.terminate()
+    assert.equal(data, 'hello', 'should have received a message event')
+  })
+
+  test('globalThis.onmessage inside worker works', async t => {
+    const url = code`globalThis.onmessage = evt => postMessage(evt.data)`
+    const worker = new Worker(url, { type: 'module' })
+    worker.postMessage('hello')
+    const data = await new Promise(rs => {
+      worker.onmessage = evt => rs(evt.data)
+    })
+    worker.terminate()
+    assert.equal(data, 'hello', 'should have received a message event')
+  })
+
+  test('Worker within a Worker', async t => {
+    const url = code`
+			const code = 'postMessage(3)'
+			const blob = new Blob([code], { type: 'text/javascript' })
+			const url = URL.createObjectURL(blob)
+
+			const worker = new Worker(url, { type: 'module' })
+			worker.onmessage = evt => postMessage(evt.data)
+		`
+
+    const worker = new Worker(url, { type: 'module' })
+    const { data } = (await one(worker))
+    worker.terminate()
+    assert.equal(data, 3, 'should have received a message event')
+  })
+})

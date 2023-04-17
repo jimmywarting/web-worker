@@ -1,3 +1,3 @@
-export function other() {
-	return 42;
+export function other () {
+  return 42
 }
