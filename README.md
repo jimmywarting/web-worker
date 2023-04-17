@@ -19,6 +19,8 @@ _Here's how this is different from worker_threads:_
 - supports event handler properties (`worker.onmessage=..`)
 - `Worker()` accepts a URL, Blob URL or Data URL (via loaders)
 - emulates browser-style [WorkerGlobalScope] within the worker
+- Worker thread can import `data:`, `https:`, `blob:`, `file:` files just fine
+ - Worker constructed also supports those too `new Worker('https://...')`
 
 ### Usage Example
 
@@ -155,8 +157,4 @@ including
 - Worker (to create worker within a worker)
 - self
 - postMessage
-- and global will be inherit EventTarget (addEventListener, remove and dispatch)
-
-The worker thread isn't really instantiated with code to eval or any path.
-instead everything is imported with lazy import `import(url)` or `import('data:')`
-in order to support esm inside the workers.
+- and `globalThis` will be inherit `EventTarget` (addEventListener, remove and dispatch)
