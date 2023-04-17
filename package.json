@@ -1,5 +1,5 @@
 {
-  "name": "web-worker-polyfill",
+  "name": "@endless/web-worker",
   "version": "1.0.0",
   "description": "Consistent Web Workers in browser and Node.",
   "type": "module",
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jimmywarting/web-worker-polyfill.git"
+    "url": "git+https://github.com/jimmywarting/web-worker.git"
   },
   "keywords": [
     "worker",
@@ -30,9 +30,9 @@
   "author": "Jimmy Wärting <jimmy@warting.se> (https://jimmy.warting.se/opensource)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jimmywarting/web-worker-polyfill/issues"
+    "url": "https://github.com/jimmywarting/web-worker/issues"
   },
-  "homepage": "https://github.com/jimmywarting/web-worker-polyfill#readme",
+  "homepage": "https://github.com/jimmywarting/web-worker#readme",
   "funding": [
     {
       "type": "github",
