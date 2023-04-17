@@ -13,7 +13,7 @@
     "node": ">=16"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --experimental-loader ./loader.js --no-warnings ./test/spec.js"
   },
   "repository": {
     "type": "git",

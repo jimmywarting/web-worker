@@ -15,9 +15,9 @@ _Here's how this is different from worker_threads:_
 
 - makes Worker code compatible across browser, Node and Deno
 - only supports Module Workers (`{type:'module'}`)
-- uses DOM-style events (`Event.data`, `Event.type`, etc)
+- uses DOM-style events (`Event.data`, `Event.type`, `MessageEvent`, etc)
 - supports event handler properties (`worker.onmessage=..`)
-- `Worker()` accepts a URL, Blob URL or Data URL
+- `Worker()` accepts a URL, Blob URL or Data URL (via loaders)
 - emulates browser-style [WorkerGlobalScope] within the worker
 
 ### Usage Example
@@ -27,8 +27,8 @@ In its simplest form:
 ```js
 import Worker from 'web-worker-polyfill'
 
-const worker = new Worker('data:,postMessage("hello")');
-worker.onmessage = e => console.log(e.data);  // "hello"
+const worker = new Worker('data:text/javascript,postMessage("hello")')
+worker.onmessage = e => console.log(e.data)  // "hello"
 ```
 
 <table>
@@ -38,14 +38,14 @@ worker.onmessage = e => console.log(e.data);  // "hello"
 ```js
 import Worker from 'web-worker-polyfill'
 
-const url = new URL('./worker.js', import.meta.url);
-const worker = new Worker(url);
+const url = new URL('./worker.js', import.meta.url)
+const worker = new Worker(url)
 
 worker.addEventListener('message', e => {
   console.log(e.data)  // "hiya!"
-});
+})
 
-worker.postMessage('hello');
+worker.postMessage('hello')
 ```
 
 </td><td valign="top">
@@ -53,9 +53,9 @@ worker.postMessage('hello');
 ```js
 addEventListener('message', e => {
   if (e.data === 'hello') {
-    postMessage('hiya!');
+    postMessage('hiya!')
   }
-});
+})
 ```
 
 </td></tr></tbody>
@@ -80,10 +80,10 @@ import Worker from 'web-worker-polyfill'
 const worker = new Worker(
   new URL('./worker.js', import.meta.url),
   { type: 'module' }
-);
+)
 worker.addEventListener('message', e => {
   console.log(e.data)  // "200 OK"
-});
+})
 worker.postMessage('https://httpstat.us/200')
 ```
 
@@ -109,24 +109,43 @@ Instantiating Worker using a Data URL is supported in both module and classic wo
 ```js
 import Worker from 'web-worker-polyfill'
 
-const worker = new Worker(`data:application/javascript,postMessage(42)`);
+const worker = new Worker(`data:application/javascript,postMessage(42)`)
 worker.addEventListener('message', e => {
   console.log(e.data)  // 42
-});
+})
 ```
 
 ### Blob URLs
 
-Instantiating Worker using a Data URL is supported in both module and classic workers:
+Instantiating Worker using a Blob URL is supported
 
 ```js
 import Worker from 'web-worker-polyfill'
 
 const code = 'import fs from "node:fs"'
 const blob = new Blob([code], { type: 'text/javascript' })
-const url = URL.createObjectURL(blob)
+const worker = new Worker(URL.createObjectURL(blob))
+```
+
+### HTTP loader supported.
+
+Worker gets added https- loader support via `--loader` flag
+
+```js
+import Worker from 'web-worker-polyfill'
+
+const code = 'import xyz from "https://example.com/main.js"'
+const blob = new Blob([code], { type: 'text/javascript' })
+const worker = new Worker(URL.createObjectURL(blob))
+```
+
+```js
+import Worker from 'web-worker-polyfill'
+
+const url = 'https://example.com/main.js'
 const worker = new Worker(url)
 ```
+
 
 # Worker global scope
 

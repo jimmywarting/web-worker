@@ -1,149 +1,179 @@
-import { isMainThread, Worker as NodeWorker, workerData } from 'node:worker_threads'
-import { cwd } from 'node:process'
+import { Worker as NodeWorker } from 'node:worker_threads'
 import { resolveObjectURL } from 'node:buffer'
+import { execArgv } from 'node:process'
 
-const baseUrl = new URL(cwd(), 'file://')
+// Create a BroadcastChannel to listen for messages containing blob URLs and
+// respond with the contents of those blobs to loaders so that
+// `import('blob:x')` works.
+const bc = new BroadcastChannel('blob: loader')
+bc.addEventListener('message', async evt => {
+  const url = evt.data
+  const blob = resolveObjectURL(url)
+  if (blob) {
+    const source = await blob.text()
+    bc.postMessage({url, source})
+  }
+})
+bc?.unref()
 
-const ErrorEvent = globalThis.ErrorEvent || class ErrorEvent extends Event {
+// Define a custom ErrorEvent class that includes an `error` property.
+globalThis.ErrorEvent ??= class ErrorEvent extends Event {
   constructor (type, { error }) {
     super(type)
     this.error = error
   }
 }
 
-function mainThread () {
-  /**
-	 * A web-compatible Worker implementation atop Node's worker_threads.
-	 *  - uses DOM-style events (Event.data, Event.type, etc)
-	 *  - supports event handler properties (worker.onmessage)
-	 *  - Worker() constructor accepts a module URL
-	 *  - accepts the {type:'module'} option
-	 *  - emulates WorkerGlobalScope within the worker
-	 * @param {string} url  The URL or module specifier to load
-	 * @param {object} [options]  Worker construction options
-	 * @param {string} [options.name]  Available as `self.name` within the Worker
-	 * @param {string} [options.type="classic"]  Pass "module" to create a Module Worker.
-	 */
-  class Worker extends EventTarget {
-    onmessage = null
-    onerror = null
-    onclose = null
+// Define a custom Web Worker class that extends EventTarget.
+const WebWorker = class Worker extends EventTarget {
+  #onmessage = null
+  #onerror = null
 
-    #worker
-    #mc = new MessageChannel()
+  #worker
 
     /**
-		 * @param {string} scriptURL
-		 * @param {WorkerOptions} [options]
-		 */
-    constructor (scriptURL, options = {}) {
-      super()
+   * @param {string} scriptURL - The URL of the worker script to load.
+   * @param {WorkerOptions} [options] - Additional options to pass to the worker.
+   */
+  constructor (scriptURL, options = {}) {
+    super()
+    const { name, type } = options
 
-      const { name, type } = options
-      scriptURL += ''
-
-      if (type !== 'module') {
-        throw new Error(
-          'Sorry, only module workers are supported\n' +
-          'Use: new Worker(path, { type: "module" })\n'
-        )
-      }
-
-      const { port1 } = this.#mc
-
-      port1.addEventListener('message', evt => {
-        const event = new MessageEvent('message', { data: evt.data })
-        this.dispatchEvent(event)
-        this.onmessage?.(event)
-      })
-
-      this.postMessage = port1.postMessage.bind(port1)
-
-      this.#loadModule(scriptURL, name)
-    }
-
-    async #loadModule (url, name) {
-      if (url.startsWith('blob:')) {
-        const blob = resolveObjectURL(url)
-        const code = await blob.text()
-        // convert code to data: URL
-        url = `data:text/javascript,${encodeURIComponent(code)}`
-      }
-
-      const mod = url.startsWith('data:')
-        ? url
-        : url.startsWith('blob:')
-          ? resolveObjectURL(url)
-          : new URL(url, baseUrl).href
-
-      const { port2 } = this.#mc
-
-      const worker = new NodeWorker(
-        import.meta.url.slice(7),
-        {
-          workerData: { mod, name, port: port2 },
-          transferList: [port2]
-        }
+    if (type !== 'module') {
+      throw new Error(
+        'Sorry, only module workers are supported\n' +
+        'Use: new Worker(path, { type: "module" })\n'
       )
+    }
 
-      worker.on('exit', () => {
-        this._exited = true
-      })
+    this.#loadModule(new URL(scriptURL), name)
+  }
 
-      worker.on('error', error => {
-        const evt = new ErrorEvent('error', { error })
+  /**
+   * Add an event listener for the given type of event.
+   * @param {string} type - The type of event to listen for (e.g. "message").
+   * @param {*} listener - The function to call when the event occurs.
+   * @param {...*} rest - additional arguments to pass to the `addEventListener`
+   */
+  addEventListener(type, listener, ...rest) {
+    super.addEventListener(type, listener, ...rest)
+
+    // If the type of event being listened for is "message", forward messages
+    // received from the worker to the event listeners.
+    if (type === 'message') {
+      this.#worker.on('message', data => {
+        const evt = new MessageEvent('message', { data })
         this.dispatchEvent(evt)
-        this.onerror?.(evt)
       })
-
-      worker.on('close', () => {
-
-      })
-
-      this.#worker = worker
-    }
-
-    terminate () {
-      this.#worker.terminate()
     }
   }
 
-  return Worker
-}
+  /**
+   * Send a message to the worker.
+   * @param {...*} args - The data and transfer list to send to the worker.
+   */
+  postMessage (...args) {
+    this.#worker.postMessage(...args)
+  }
 
-function workerThread () {
-  const { mod, name, port } = workerData
+  /**
+   * Load the module at the given URL as a worker.
+   * @param {URL} url - The URL of the worker script to load.
+   * @param {string} [name] - A name for the worker (not used in this implementation).
+   */
+  #loadModule (url, name) {
+    // If the URL protocol is blob or https, convert it to a data: URL with import(url)
+    if (url.protocol === 'blob:' || url.protocol === 'https:') {
+      // tip: converting it to a data: URL will cause the worker to operate as ESM
+      // https://github.com/nodejs/node/blob/b8c7a1ecf8f1e9773d587f9a49b47b31e5ff11ee/lib/internal/worker.js#L163-L166
+      url = new URL(`data:text/javascript,import '${url}'`)
+      // console.log(url.href)
+    }
 
-  Object.assign(globalThis, { name, self: globalThis, Worker: mainThread() })
+    const loader = new URL('./loader.js', import.meta.url).href.replace('file://', '')
+    const preload = new URL('./preload-worker.js', import.meta.url).href.replace('file://', '')
 
-  // enqueue messages to dispatch after modules are loaded
-  function setupListeners () {
-    port.addEventListener('message', evt => {
-      const event = new MessageEvent('message', { data: evt.data })
-      globalThis.dispatchEvent(event)
-      globalThis.onmessage?.(event)
+    const worker = new NodeWorker(
+      url,
+      {
+        workerData: { name },
+        execArgv: execArgv.includes(preload)
+          ? execArgv
+          : [
+            '--import', preload,
+            '--loader', loader,
+            ...execArgv
+          ]
+      }
+    )
+
+    // Set up event listeners for the worker events
+    worker.on('exit', () => {
+      this._exited = true
     })
+
+    worker.on('error', error => {
+      // Create a new `ErrorEvent` and dispatch it to the event target
+      const evt = new ErrorEvent('error', { error })
+      this.dispatchEvent(evt)
+    })
+
+    // worker.on('close', () => noop)
+
+    this.#worker = worker
   }
 
-  class WorkerGlobalScope extends EventTarget {
-    postMessage (data, transferList) {
-      port.postMessage(data, transferList)
-    }
+  /** Terminates the web worker */
+  terminate () {
+    this.#worker.terminate()
+  }
 
-    close () {
-      process.exit()
+  /**
+   * Sets the error event listener for the web worker.
+   * @param {Function} fn - The error event listener function.
+   */
+  set onerror (fn) {
+    // Remove the previous error event listener, if any
+    if (this.#onerror) this.removeEventListener('error', this.#onerror)
+
+    // Save the new error event listener function to the private property
+    this.#onerror = fn
+
+      // Add the new error event listener function to the event target
+    if (typeof fn === 'function') {
+      this.addEventListener('error', fn)
+    } else {
+      this.#onerror = null
     }
   }
-  let proto = Object.getPrototypeOf(globalThis)
-  delete proto.constructor
-  Object.defineProperties(WorkerGlobalScope.prototype, proto)
-  proto = Object.setPrototypeOf(globalThis, new WorkerGlobalScope());
-  ['postMessage', 'addEventListener', 'removeEventListener', 'dispatchEvent'].forEach(fn => {
-    proto[fn] = proto[fn].bind(globalThis)
-  })
 
-  import(mod).then(setupListeners)
+  /**
+   * Gets the error event listener for the web worker.
+   * @returns {Function|null} - The error event listener function.
+   */
+  get onerror () {
+    return this.#onerror
+  }
+
+  /**
+   * Sets the message event listener for the web worker.
+   * @param {Function|null} fn - The message event listener function.
+   */
+  set onmessage (fn) {
+    if (this.#onmessage) this.removeEventListener('message', this.#onmessage)
+    this.#onmessage = fn
+
+    if (typeof fn === 'function') {
+      this.addEventListener('message', fn)
+    } else {
+      this.#onmessage = null
+    }
+  }
+
+  get onmessage () {
+    return this.#onmessage
+  }
 }
 
 /** @type {typeof Worker} */
-export default isMainThread ? mainThread() : workerThread()
+export default WebWorker

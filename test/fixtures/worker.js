@@ -1,4 +1,4 @@
-import { other } from './other.mjs'
+import { other } from './other.js'
 
 postMessage(other())
 
