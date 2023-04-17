@@ -1,5 +1,5 @@
 <h1 align="center">
-  web-worker
+  es-worker
   <a href="https://www.npmjs.org/package/web-worker"><img src="https://img.shields.io/npm/v/web-worker.svg?style=flat-square" alt="npm"></a>
 </h1>
 <p align="center">
@@ -17,11 +17,11 @@
 
 _Here's how this is different from worker_threads:_
 
-- makes Worker code compatible across browser and Node
-- supports Module Workers (`{type:'module'}`) natively in Node 12.8+
+- makes Worker code compatible across browser, Node and Deno
+- only supports Module Workers (`{type:'module'}`)
 - uses DOM-style events (`Event.data`, `Event.type`, etc)
 - supports event handler properties (`worker.onmessage=..`)
-- `Worker()` accepts a module URL, Blob URL or Data URL
+- `Worker()` accepts a URL, Blob URL or Data URL
 - emulates browser-style [WorkerGlobalScope] within the worker
 
 ### Usage Example
@@ -29,7 +29,7 @@ _Here's how this is different from worker_threads:_
 In its simplest form:
 
 ```js
-import Worker from 'web-worker';
+import Worker from 'web-worker'
 
 const worker = new Worker('data:,postMessage("hello")');
 worker.onmessage = e => console.log(e.data);  // "hello"
@@ -40,7 +40,7 @@ worker.onmessage = e => console.log(e.data);  // "hello"
 <tbody><tr><td>
 
 ```js
-import Worker from 'web-worker';
+import Worker from 'web-worker'
 
 const url = new URL('./worker.js', import.meta.url);
 const worker = new Worker(url);
@@ -120,15 +120,3 @@ worker.addEventListener('message', e => {
   console.log(e.data)  // 42
 });
 ```
-
-### Special Thanks
-
-This module aims to provide a simple and forgettable piece of infrastructure,
-and as such it needed an obvious and descriptive name.
-[@calvinmetcalf](https://github.com/calvinmetcalf), who you may recognize as the author of [Lie](https://github.com/calvinmetcalf/lie) and other fine modules, gratiously offered up the name from his `web-worker` package.
-Thanks Calvin!
-
-
-[worker-plugin]: https://github.com/googlechromelabs/worker-plugin
-[rollup-plugin-off-main-thread]: https://github.com/surma/rollup-plugin-off-main-thread
-[WorkerGlobalScope]: https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope
