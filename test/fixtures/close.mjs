@@ -1,1 +1,1 @@
-self.close();
+self.close()
