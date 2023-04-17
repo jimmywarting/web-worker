@@ -1,5 +1,5 @@
 <h1 align="center">
-  web-worker-polyfill
+  Web Worker
 </h1>
 <p align="center">
   Native cross-platform Web Workers. Works in published npm modules.
@@ -27,7 +27,7 @@ _Here's how this is different from worker_threads:_
 In its simplest form:
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const worker = new Worker('data:text/javascript,postMessage("hello")')
 worker.onmessage = e => console.log(e.data)  // "hello"
@@ -38,7 +38,7 @@ worker.onmessage = e => console.log(e.data)  // "hello"
 <tbody><tr><td>
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const url = new URL('./worker.js', import.meta.url)
 const worker = new Worker(url)
@@ -77,7 +77,7 @@ In the browser, they can be used natively in Chrome 80+, or in all browsers via 
 <tbody><tr><td>
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const worker = new Worker(
   new URL('./worker.js', import.meta.url),
@@ -109,7 +109,7 @@ addEventListener('message', async e => {
 Instantiating Worker using a Data URL is supported in both module and classic workers:
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const worker = new Worker(`data:application/javascript,postMessage(42)`)
 worker.addEventListener('message', e => {
@@ -122,7 +122,7 @@ worker.addEventListener('message', e => {
 Instantiating Worker using a Blob URL is supported
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const code = 'import fs from "node:fs"'
 const blob = new Blob([code], { type: 'text/javascript' })
@@ -134,7 +134,7 @@ const worker = new Worker(URL.createObjectURL(blob))
 Worker gets added https- loader support via `--loader` flag
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const code = 'import xyz from "https://example.com/main.js"'
 const blob = new Blob([code], { type: 'text/javascript' })
@@ -142,7 +142,7 @@ const worker = new Worker(URL.createObjectURL(blob))
 ```
 
 ```js
-import Worker from 'web-worker-polyfill'
+import Worker from '@endless/web-worker'
 
 const url = 'https://example.com/main.js'
 const worker = new Worker(url)
