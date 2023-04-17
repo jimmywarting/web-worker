@@ -1,6 +1,11 @@
 <h1 align="center">
+<<<<<<< Updated upstream
   web-worker
   <a href="https://www.npmjs.org/package/web-worker"><img src="https://img.shields.io/npm/v/web-worker.svg?style=flat-square" alt="npm"></a>
+=======
+  es-worker
+  <a href="https://www.npjs.org/package/web-worker"><img src="https://img.shields.io/npm/v/web-worker.svg?style=flat-square" alt="npm"></a>
+>>>>>>> Stashed changes
 </h1>
 <p align="center">
   Native cross-platform Web Workers. Works in published npm modules.
@@ -75,33 +80,31 @@ Module Workers are supported in Node 12.8+ using this plugin, leveraging Node's 
 In the browser, they can be used natively in Chrome 80+, or in all browsers via [worker-plugin] or [rollup-plugin-off-main-thread]. As with classic workers, there is no difference in usage between Node and the browser:
 
 <table>
-<thead><tr><th><strong>main.mjs</strong></th><th><strong>worker.mjs</strong></th></tr></thead>
+<thead><tr><th><strong>main.js</strong></th><th><strong>worker.js</strong></th></tr></thead>
 <tbody><tr><td>
 
 ```js
-import Worker from 'web-worker';
+import Worker from 'web-worker-polyfill'
 
 const worker = new Worker(
-  new URL('./worker.mjs', import.meta.url),
+  new URL('./worker.js', import.meta.url),
   { type: 'module' }
 );
 worker.addEventListener('message', e => {
   console.log(e.data)  // "200 OK"
 });
-worker.postMessage('https://httpstat.us/200');
+worker.postMessage('https://httpstat.us/200')
 ```
 
 </td><td valign="top">
 
 ```js
-import fetch from 'isomorphic-fetch';
-
 addEventListener('message', async e => {
-  const url = e.data;
+  const url = e.data
   const res = await fetch(url)
-  const text = await res.text();
-  postMessage(text);
-});
+  const text = await res.text()
+  postMessage(text)
+})
 ```
 
 </td></tr></tbody>
@@ -113,7 +116,7 @@ addEventListener('message', async e => {
 Instantiating Worker using a Data URL is supported in both module and classic workers:
 
 ```js
-import Worker from 'web-worker';
+import Worker from 'web-worker-polyfill'
 
 const worker = new Worker(`data:application/javascript,postMessage(42)`);
 worker.addEventListener('message', e => {
@@ -121,6 +124,7 @@ worker.addEventListener('message', e => {
 });
 ```
 
+<<<<<<< Updated upstream
 ### Special Thanks
 
 This module aims to provide a simple and forgettable piece of infrastructure,
@@ -132,3 +136,31 @@ Thanks Calvin!
 [worker-plugin]: https://github.com/googlechromelabs/worker-plugin
 [rollup-plugin-off-main-thread]: https://github.com/surma/rollup-plugin-off-main-thread
 [WorkerGlobalScope]: https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope
+=======
+### Blob URLs
+
+Instantiating Worker using a Data URL is supported in both module and classic workers:
+
+```js
+import Worker from 'web-worker-polyfill'
+
+const code = 'import fs from "node:fs"'
+const blob = new Blob([code], { type: 'text/javascript' })
+const url = URL.createObjectURL(blob)
+const worker = new Worker(url)
+```
+
+# Worker global scope
+
+Each time when creating a new Worker it will get assigned some new global variables
+including
+- name
+- Worker (to create worker within a worker)
+- self
+- postMessage
+- and global will be inherit EventTarget (addEventListener, remove and dispatch)
+
+The worker thread isn't really instantiated with code to eval or any path.
+instead everything is imported with lazy import `import(url)` or `import('data:')`
+in order to support esm inside the workers.
+>>>>>>> Stashed changes
