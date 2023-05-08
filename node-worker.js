@@ -1,6 +1,6 @@
 import { Worker as NodeWorker } from 'node:worker_threads'
 import { resolveObjectURL } from 'node:buffer'
-import { execArgv } from 'node:process'
+import { execArgv, stdout, stderr } from 'node:process'
 
 // Create a BroadcastChannel to listen for messages containing blob URLs and
 // respond with the contents of those blobs to loaders so that
@@ -46,7 +46,7 @@ const WebWorker = class Worker extends EventTarget {
       )
     }
 
-    this.#loadModule(new URL(scriptURL), name)
+    this.#loadModule(new URL(scriptURL, 'file://' + process.cwd()), name)
   }
 
   /**
@@ -96,10 +96,11 @@ const WebWorker = class Worker extends EventTarget {
     const worker = new NodeWorker(
       url,
       {
-        workerData: { name },
+        workerData: { name, stdout: stdout.fd, stderr: stderr.fd },
         execArgv: execArgv.includes(preload)
           ? execArgv
           : [
+            '--no-warnings',
             '--import', preload,
             '--loader', loader,
             ...execArgv

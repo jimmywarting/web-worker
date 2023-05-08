@@ -1,8 +1,35 @@
+import { Console } from 'node:console'
 import { parentPort, workerData } from 'node:worker_threads'
-import { exit } from 'node:process'
+import { Writable } from 'node:stream'
+import { writeSync } from 'node:fs'
+import process from 'node:process'
+
 import Worker from './node-worker.js'
 
-const { name } = workerData
+const { exit } = process
+const { name, stdout, stderr } = workerData
+
+process.stdout.fd = stdout
+process.stderr.fd = stderr
+
+/******************************************************************************/
+/* Change the way logs are printed to stdout and stderr                       */
+/* NodeJS seems to be sending the chunks back to the main thread with         */
+/* postMessage and then printing them to main stdout and stderr               */
+/*                                                                            */
+/* An alternative approach would be to just get the parents stdout and stderr */
+/* fd and write to them directly                                              */
+/*                                                                            */
+/* see:                                                                       */
+/* http://github.com/jimmywarting/await-sync/issues/1#issuecomment-1537551754 */
+/* https://github.com/nodejs/node/issues/47923                                */
+/******************************************************************************/
+const stdio = fd => Writable.fromWeb(new WritableStream({
+  write (chunk) {
+    writeSync(fd, chunk)
+  }
+}))
+
 let onmessage = null
 
 class WorkerGlobalScope extends EventTarget {
@@ -13,6 +40,7 @@ class WorkerGlobalScope extends EventTarget {
     this.name = name
     this.self = globalThis
     this.Worker = Worker
+    this.console = globalThis.console = new Console(stdio(stdout), stdio(stderr))
   }
 
   postMessage(...args) {

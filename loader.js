@@ -1,4 +1,6 @@
+import { writeFileSync } from 'node:fs'
 import { resolveObjectURL } from 'node:buffer'
+writeFileSync(new URL('./debug', import.meta.url), 'url:')
 
 const bc = new BroadcastChannel('blob: loader')
 bc.addEventListener('message', async evt => {

@@ -1,16 +1,17 @@
 {
   "name": "whatwg-worker",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Consistent Web Workers in browser and Node.",
   "type": "module",
   "main": "node-worker.js",
   "browser": "./browser-worker.js",
   "exports": {
     "browser": "./browser-worker.js",
+    "deno": "./browser-worker.js",
     "node": "./node-worker.js"
   },
   "engines": {
-    "node": ">=16"
+    "node": "=>19"
   },
   "scripts": {
     "test": "node --experimental-loader ./loader.js --no-warnings ./test/spec.js"
