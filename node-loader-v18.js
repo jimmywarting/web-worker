@@ -1,18 +1,19 @@
+import { write, appendFileSync } from 'node:fs'
 import { BroadcastChannel } from 'node:worker_threads'
 import { resolveObjectURL } from 'node:buffer'
 
 // Make it easier to debug
-// ;['stdout', 'stderr'].forEach((name, i) => {
-//   const fd = ++i
-//   process[name]._writev = function _writev(chunks, cb) {
-//     const { chunk, encoding } = chunks.pop()
-//     write(fd, chunk, null, encoding, (err) => {
-//       if (err) cb(err)
-//       else if (chunks.length === 0) cb()
-//       else this._writev(chunks, cb)
-//     })
-//   }
-// })
+;['stdout', 'stderr'].forEach((name, i) => {
+  const fd = ++i
+  process[name]._writev = function _writev(chunks, cb) {
+    const { chunk, encoding } = chunks.pop()
+    write(fd, chunk, null, encoding, (err) => {
+      if (err) cb(err)
+      else if (chunks.length === 0) cb()
+      else this._writev(chunks, cb)
+    })
+  }
+})
 
 const bc = new BroadcastChannel('blob: loader')
 bc.addEventListener('message', async evt => {

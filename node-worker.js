@@ -138,7 +138,6 @@ const WebWorker = class Worker extends EventTarget {
       const b64 = Buffer.from(code).toString('base64')
       url = new URL('data:text/javascript;base64,' + b64)
     } else {
-      console.log('url', url+'')
       url = new URL(`data:text/javascript,import '${preInstall}';await import('${url}');`)
     }
 

@@ -35,7 +35,7 @@ test.after.always(t => {
 });
 
 test.serial('instantiation', async t => {
-	worker = createModuleWorker('./test/fixtures/worker.mjs');
+	worker = createModuleWorker('./test/fixtures/worker.js');
 	await sleep(500);
 	t.is(worker.events.length, 1, 'should have received a message event');
 	t.is(worker.events[0].data, 42);
@@ -52,7 +52,7 @@ test.serial('postMessage', async t => {
 	await sleep(500);
 
 	t.is(worker.events.length, 2, 'should have received two message responses');
-	
+
 	const first = worker.events[0];
 	t.is(first.data[0], 'received onmessage');
 	t.assert(Math.abs(timestamp - first.data[1]) < 500);
@@ -67,7 +67,7 @@ test.serial('postMessage', async t => {
 });
 
 test.serial('close', async t => {
-	const worker = new Worker('./test/fixtures/close.mjs', { type: 'module' });
+	const worker = new Worker('./test/fixtures/close.js', { type: 'module' });
 	// Not emitted in the browser, just for testing
 	const closed = await new Promise((resolve, reject) => {
 		worker.addEventListener('close', () => resolve(true));

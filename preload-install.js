@@ -7,17 +7,17 @@ import Worker from './node-worker.js'
 const { exit } = process
 const { name } = workerData
 
-// ;['stdout', 'stderr'].forEach((name, i) => {
-//   const fd = ++i
-//   process[name]._writev = function _writev(chunks, cb) {
-//     const { chunk, encoding } = chunks.pop()
-//     write(fd, chunk, null, encoding, (err) => {
-//       if (err) cb(err)
-//       else if (chunks.length === 0) cb()
-//       else this._writev("chunks", cb)
-//     })
-//   }
-// })
+;['stdout', 'stderr'].forEach((name, i) => {
+  const fd = ++i
+  process[name]._writev = function _writev(chunks, cb) {
+    const { chunk, encoding } = chunks.pop()
+    write(fd, chunk, null, encoding, (err) => {
+      if (err) cb(err)
+      else if (chunks.length === 0) cb()
+      else this._writev("chunks", cb)
+    })
+  }
+})
 
 let onmessage = null
 
@@ -77,6 +77,3 @@ const proto = Object.getPrototypeOf(globalThis)
 delete proto.constructor
 Object.defineProperties(WorkerGlobalScope.prototype, proto)
 Object.setPrototypeOf(globalThis, new WorkerGlobalScope())
-
-
-// globalThis.foo = 123

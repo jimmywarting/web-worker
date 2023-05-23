@@ -1,6 +1,6 @@
 <h1 align="center">
   web-worker
-  <a href="https://www.npmjs.org/package/web-worker"><img src="https://img.shields.io/npm/v/web-worker.svg?style=flat-square" alt="npm"></a>
+  <a href="https://www.npjs.org/package/web-worker"><img src="https://img.shields.io/npm/v/web-worker.svg?style=flat-square" alt="npm"></a>
 </h1>
 <p align="center">
   Native cross-platform Web Workers. Works in published npm modules.
@@ -75,14 +75,14 @@ Module Workers are supported in Node 12.8+ using this plugin, leveraging Node's 
 In the browser, they can be used natively in Chrome 80+, or in all browsers via [worker-plugin] or [rollup-plugin-off-main-thread]. As with classic workers, there is no difference in usage between Node and the browser:
 
 <table>
-<thead><tr><th><strong>main.mjs</strong></th><th><strong>worker.mjs</strong></th></tr></thead>
+<thead><tr><th><strong>main.js</strong></th><th><strong>worker.js</strong></th></tr></thead>
 <tbody><tr><td>
 
 ```js
 import Worker from 'web-worker';
 
 const worker = new Worker(
-  new URL('./worker.mjs', import.meta.url),
+  new URL('./worker.js', import.meta.url),
   { type: 'module' }
 );
 worker.addEventListener('message', e => {
