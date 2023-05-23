@@ -38,7 +38,7 @@ let createBlobReader = () => {
   return blobReader
 }
 
-const loaderPath = './node-loader-v18.js'
+const loaderPath = new URL('./loader.js', import.meta.url).pathname
 
 globalThis.Blob ??= await import('node:buffer').then(({ Blob }) => Blob)
 
@@ -134,15 +134,10 @@ const WebWorker = class Worker extends EventTarget {
       url = new URL(`data:text/javascript,import '${preInstall}';await import('${url}');`)
     }
 
-    const loader = new URL(
-      loaderPath,
-      import.meta.url
-    ).href.replace('file://', '')
-
     const execArgv = [
       '--no-warnings',
-      '--loader', loader,
-      '--experimental-loader', loader,
+      '--loader', loaderPath,
+      '--experimental-loader', loaderPath,
     ]
 
     const worker = new NodeWorker(
