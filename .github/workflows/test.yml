@@ -1,7 +1,7 @@
 name: Test
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - src/**
       - test/**
@@ -9,7 +9,7 @@ on:
       - "*.ts"
       - .github/workflows/test.yml
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - src/**
       - test/**
