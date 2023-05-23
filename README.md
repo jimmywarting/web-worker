@@ -8,7 +8,7 @@
 
 </div>
 
-📜 Implements the `Worker` class from the HTML specification \
+📜 Implements [the `Worker` class from the HTML specification] \
 🦄 Supports ponyfilling instead of polyfilling \
 🧊 Isomorphically exports the normal `Worker` global in browsers & Deno \
 📦 Supports `{ type: "module" }` workers \
@@ -178,4 +178,5 @@ mode. Make some changes or add some tests and see what happens!
 [GitHub Codespaces]: https://github.com/features/codespaces
 [GoogleChromeLabs/comlink]: https://github.com/GoogleChromeLabs/comlink#readme
 [developit/greenlet]: https://github.com/developit/greenlet#readme
+[the `Worker` class from the HTML specification]: https://html.spec.whatwg.org/multipage/workers.html#dedicated-workers-and-the-worker-interface
 <!-- prettier-ignore-end -->
