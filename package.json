@@ -9,6 +9,7 @@
     "node": "./cjs/node.js",
     "default": "./cjs/node.js"
   },
+  "type": "module",
   "types": "index.d.ts",
   "files": [
     "cjs",
@@ -17,8 +18,7 @@
     "index.d.ts"
   ],
   "scripts": {
-    "prepare": "babel node.js browser.js -d cjs",
-    "test": "eslint '*.js' test && node --experimental-modules ./node_modules/.bin/ava"
+    "test": "node --experimental-loader ./loader.js --no-warnings ./test/spec.js"
   },
   "babel": {
     "plugins": [
