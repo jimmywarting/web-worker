@@ -122,8 +122,8 @@ comparison of Node.js' `worker.Worker` vs our `Worker` class:
 
 ## Spec compliance
 
-We don't implement the entirety of the `Worker`-related parts of the HTML spec.
-There's no `WorkerNavigator` or `WorkerLocation`. There's also no
+We don't implement the entirety of the [`Worker`-related parts of the HTML
+spec]. There's no `WorkerNavigator` or `WorkerLocation`. There's also no
 `importScripts()`. We also don't provide the related `online`, `offline`, or
 `languagechange` events.
 
@@ -179,4 +179,5 @@ mode. Make some changes or add some tests and see what happens!
 [GoogleChromeLabs/comlink]: https://github.com/GoogleChromeLabs/comlink#readme
 [developit/greenlet]: https://github.com/developit/greenlet#readme
 [the `Worker` class from the HTML specification]: https://html.spec.whatwg.org/multipage/workers.html#dedicated-workers-and-the-worker-interface
+[`Worker`-related parts of the HTML spec]: https://html.spec.whatwg.org/multipage/workers.html
 <!-- prettier-ignore-end -->
