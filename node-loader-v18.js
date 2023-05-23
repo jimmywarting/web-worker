@@ -1,6 +1,19 @@
-import { writeFileSync } from 'node:fs'
+import { write, appendFileSync } from 'node:fs'
+import { BroadcastChannel } from 'node:worker_threads'
 import { resolveObjectURL } from 'node:buffer'
-writeFileSync(new URL('./debug', import.meta.url), 'url:')
+
+// Make it easier to debug
+;['stdout', 'stderr'].forEach((name, i) => {
+  const fd = ++i
+  process[name]._writev = function _writev(chunks, cb) {
+    const { chunk, encoding } = chunks.pop()
+    write(fd, chunk, null, encoding, (err) => {
+      if (err) cb(err)
+      else if (chunks.length === 0) cb()
+      else this._writev(chunks, cb)
+    })
+  }
+})
 
 const bc = new BroadcastChannel('blob: loader')
 bc.addEventListener('message', async evt => {
@@ -36,6 +49,42 @@ export function resolve (specifier, context, nextResolve) {
 }
 
 export async function load (url, context, nextLoad) {
+  // For JavaScript to be loaded over the network
+  if (url.startsWith('https://')) {
+    return {
+      format: 'module',
+      shortCircuit: true,
+      source: await fetch(url).then(r => r.text())
+    }
+  }
+
+  if (url.startsWith('data:text/javascript;,"blob:nodedata:')) {
+    const blobUrl = url.slice(-51, -1)
+
+    // // use broadcast channel to ask main thread to resolve blob
+    // bc.postMessage(blobUrl)
+    // const source = await new Promise(rs => {
+    //   // Don't remove or or hell will break loose
+    //   setTimeout(() => {}, 100)
+
+    //   function listener (evt) {
+    //     if (evt.data.url === blobUrl) {
+    //       rs(evt.data.source)
+    //       bc.removeEventListener('message', listener)
+    //     }
+    //   }
+
+    //   bc.addEventListener('message', listener)
+    // })
+
+    return {
+      // This example assumes all network-provided JavaScript is ES module code.
+      format: 'module',
+      shortCircuit: true,
+      source: 'console.log("funka!")'
+    }
+  }
+
   if (url.startsWith('blob:')) {
     // use broadcast channel to ask main thread to resolve blob
     bc.postMessage(url)
@@ -50,17 +99,6 @@ export async function load (url, context, nextLoad) {
       })
     })
 
-    return {
-      // This example assumes all network-provided JavaScript is ES module code.
-      format: 'module',
-      shortCircuit: true,
-      source
-    }
-  }
-
-  // For JavaScript to be loaded over the network, we need to fetch and return it.
-  if (url.startsWith('https://')) {
-    const source = await fetch(url).then(res => res.text())
     return {
       // This example assumes all network-provided JavaScript is ES module code.
       format: 'module',

@@ -1,6 +1,53 @@
-import { Worker as NodeWorker } from 'node:worker_threads'
-import { resolveObjectURL } from 'node:buffer'
-import { execArgv, stdout, stderr } from 'node:process'
+import { Worker as NodeWorker, BroadcastChannel, receiveMessageOnPort } from 'node:worker_threads'
+import { resolveObjectURL, Buffer } from 'node:buffer'
+import { execArgv, cwd, version } from 'node:process'
+
+/**
+ * A synchronous FileReader implementation that uses a Web Worker to read the
+ * contents of a Blob.
+*/
+let createBlobReader = () => {
+  const shared = new SharedArrayBuffer(4)
+  const int32 = new Int32Array(shared)
+  const { port1: localPort, port2: workerPort } = new MessageChannel()
+  const reader = `
+  import { workerData, parentPort } from 'worker_threads'
+  const { shared, port } = workerData
+  port.addEventListener('message', async evt => {
+    port.postMessage(await evt.data.text())
+    Atomics.notify(new Int32Array(shared), 0)
+  })
+  `
+
+  const b64 = Buffer.from(reader).toString('base64')
+  const dataUrl = 'data:text/javascript;base64,' + b64
+
+  new NodeWorker(new URL(dataUrl), {
+    workerData: { shared, port: workerPort },
+    transferList: [ workerPort ]
+  }).unref()
+
+  const blobReader = function readBlobUrlSync (blobUrl) {
+    const blob = resolveObjectURL(blobUrl)
+    localPort.postMessage(blob)
+    Atomics.wait(int32, 0, 0)
+    return receiveMessageOnPort(localPort).message
+  }
+
+  createBlobReader = () => blobReader
+  return blobReader
+}
+
+const major = +version.slice(1).split('.')[0]
+let loaderPath = './loader.js'
+
+if ([16, 17].includes(major)) {
+  loaderPath = './node-loader-v16.js'
+  const { Blob } = await import('node:buffer')
+  globalThis.Blob = Blob
+} else if ([18, 19, 20].includes(major)) {
+  loaderPath = './node-loader-v18.js'
+}
 
 // Create a BroadcastChannel to listen for messages containing blob URLs and
 // respond with the contents of those blobs to loaders so that
@@ -46,7 +93,7 @@ const WebWorker = class Worker extends EventTarget {
       )
     }
 
-    this.#loadModule(new URL(scriptURL, 'file://' + process.cwd()), name)
+    this.#loadModule(new URL(scriptURL, 'file://' + cwd()), name)
   }
 
   /**
@@ -82,29 +129,34 @@ const WebWorker = class Worker extends EventTarget {
    * @param {string} [name] - A name for the worker (not used in this implementation).
    */
   #loadModule (url, name) {
+    const preRun = new URL('./pre-run.js', import.meta.url).toString()
+
     // If the URL protocol is blob or https, convert it to a data: URL with import(url)
-    if (url.protocol === 'blob:' || url.protocol === 'https:') {
-      // tip: converting it to a data: URL will cause the worker to operate as ESM
-      // https://github.com/nodejs/node/blob/b8c7a1ecf8f1e9773d587f9a49b47b31e5ff11ee/lib/internal/worker.js#L163-L166
-      url = new URL(`data:text/javascript,import '${url}'`)
-      // console.log(url.href)
+    if (url.protocol === 'blob:') {
+      const blobReader = createBlobReader()
+      const code = `import '${preRun}'\n` + blobReader(`${url}`)
+      const b64 = Buffer.from(code).toString('base64')
+      url = new URL('data:text/javascript;base64,' + b64)
+    } else {
+      url = new URL(`data:text/javascript,import '${preRun}';await import('${url}');`)
     }
 
-    const loader = new URL('./loader.js', import.meta.url).href.replace('file://', '')
-    const preload = new URL('./preload-worker.js', import.meta.url).href.replace('file://', '')
+    const loader = new URL(
+      loaderPath,
+      import.meta.url
+    ).href.replace('file://', '')
+
+    const execArgv = [
+      '--no-warnings',
+      '--loader', loader,
+      '--experimental-loader', loader,
+    ]
 
     const worker = new NodeWorker(
       url,
       {
-        workerData: { name, stdout: stdout.fd, stderr: stderr.fd },
-        execArgv: execArgv.includes(preload)
-          ? execArgv
-          : [
-            '--no-warnings',
-            '--import', preload,
-            '--loader', loader,
-            ...execArgv
-          ]
+        workerData: { name },
+        execArgv
       }
     )
 

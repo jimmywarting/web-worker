@@ -1,15 +1,42 @@
-import test, * as t from 'node:test'
+// import test, * as t from 'node:test'
 import assert from 'node:assert'
 import Worker from '../node-worker.js'
+
+const { test, default: t } = await import('node:test').catch(err => {
+  const t = []
+  async function test (name, fn) {
+    t.push({ name, fn })
+  }
+
+  setTimeout(async () => {
+    for (const { name, fn } of t) {
+      try {
+        await fn()
+        console.log(`✓ ${name}`)
+      } catch (err) {
+        console.log(`✕ ${name}`)
+      }
+    }
+  })
+
+  return {
+    test,
+    default: {
+      describe: (name, fn) => {
+        fn()
+      }
+    }
+  }
+})
 
 const url = new URL('./fixtures/worker.js', import.meta.url)
 const one = (worker, t = 'message') => new Promise(rs => worker.addEventListener(t, rs, { once: true }))
 const code = code => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
 
-
 t.describe('Code evaluation', () => {
   test('Basic module usage', async t => {
     const worker = new Worker(url, { type: 'module' })
+    // worker.onmessage = console.log
     const num = (await one(worker)).data
     worker.terminate()
     assert.equal(num, 42, 'should have received a message event')
@@ -41,6 +68,28 @@ t.describe('Code evaluation', () => {
     const worker = new Worker(url, { type: 'module' })
     const {data} = await one(worker)
     assert.equal(data, 1, 'should have received a message event')
+  })
+
+  test('logs in correct order', async t => {
+    const ab = new SharedArrayBuffer(4)
+    const int32 = new Int32Array(ab)
+    const url = code`
+      console.log('comes first')
+      self.onmessage = evt => {
+        console.log('comes first')
+        const int32 = new Int32Array(evt.data)
+        Atomics.store(int32, 0, 42)
+        Atomics.notify(int32, 0)
+      }
+    `
+    const sleep = ms => new Promise(rs => setTimeout(rs, ms))
+    const worker = new Worker(url, { type: 'module' })
+    worker.onerror = console.log
+    await sleep(1000)
+    worker.postMessage(ab)
+    Atomics.wait(int32, 0, 0, 2100)
+    console.log('comes second')
+    worker.terminate()
   })
 
   test('invalid code dispatch eventListener', async t => {
