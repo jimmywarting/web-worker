@@ -1,33 +1,8 @@
 // import test, * as t from 'node:test'
 import assert from 'node:assert'
 import Worker from '../node-worker.js'
-
-const { test, default: t } = await import('node:test').catch(err => {
-  const t = []
-  async function test (name, fn) {
-    t.push({ name, fn })
-  }
-
-  setTimeout(async () => {
-    for (const { name, fn } of t) {
-      try {
-        await fn()
-        console.log(`✓ ${name}`)
-      } catch (err) {
-        console.log(`✕ ${name}`)
-      }
-    }
-  })
-
-  return {
-    test,
-    default: {
-      describe: (name, fn) => {
-        fn()
-      }
-    }
-  }
-})
+import { test } from 'node:test'
+import t from 'node:test'
 
 const url = new URL('./fixtures/worker.js', import.meta.url)
 const one = (worker, t = 'message') => new Promise(rs => worker.addEventListener(t, rs, { once: true }))
@@ -70,13 +45,13 @@ t.describe('Code evaluation', () => {
     assert.equal(data, 1, 'should have received a message event')
   })
 
+  // Hard to test, need to look manually above this test result
   test('logs in correct order', async t => {
     const ab = new SharedArrayBuffer(4)
     const int32 = new Int32Array(ab)
     const url = code`
       console.log('comes first')
       self.onmessage = evt => {
-        console.log('comes first')
         const int32 = new Int32Array(evt.data)
         Atomics.store(int32, 0, 42)
         Atomics.notify(int32, 0)
@@ -174,7 +149,7 @@ t.describe('Worker thread', () => {
     assert.equal(data, 'hello', 'should have received a message event')
   })
 
-  test('Worker within a Worker', async t => {
+  test('new Worker("blob:url") within a worker', async t => {
     const url = code`
 			const code = 'postMessage(3)'
 			const blob = new Blob([code], { type: 'text/javascript' })
@@ -193,7 +168,7 @@ t.describe('Worker thread', () => {
   })
 
 	// Requires the use of --experimental-loader path
-  test('testing loaders: https- import', async t => {
+  test('import from "https:" within a worker', async t => {
     const url = code`
 			import toUint8 from 'https://raw.githubusercontent.com/jimmywarting/to-uint8array/main/mod.js'
 			postMessage(toUint8('abc'))
@@ -203,5 +178,20 @@ t.describe('Worker thread', () => {
     const { data } = (await one(worker))
 		assert.deepEqual([...data], [97, 98, 99], 'should have received a message event')
 		assert.ok(data instanceof Uint8Array, 'should have received a Uint8Array')
+  })
+
+  test('import("blob:") within a worker', async t => {
+    const url = code`
+			const blob = new Blob(['export default 123'], { type: 'text/javascript' })
+      const url = URL.createObjectURL(blob)
+
+      import(url).then(mod => {
+        postMessage(mod.default)
+      })
+		`
+
+    const worker = new Worker(url, { type: 'module' })
+    const { data } = (await one(worker))
+		assert.deepEqual(data, 123, 'should have received a message event')
   })
 })

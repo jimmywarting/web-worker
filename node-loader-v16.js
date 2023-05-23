@@ -2,19 +2,6 @@ import { get } from 'node:https'
 import { BroadcastChannel } from 'node:worker_threads'
 import { resolveObjectURL } from 'node:buffer'
 
-// Make it easier to debug
-// ;['stdout', 'stderr'].forEach((name, i) => {
-//   const fd = ++i
-//   process[name]._writev = function _writev(chunks, cb) {
-//     const { chunk, encoding } = chunks.pop()
-//     write(fd, chunk, null, encoding, (err) => {
-//       if (err) cb(err)
-//       else if (chunks.length === 0) cb()
-//       else this._writev(chunks, cb)
-//     })
-//   }
-// })
-
 const bc = new BroadcastChannel('blob: loader')
 bc.addEventListener('message', async evt => {
   const url = evt.data
@@ -63,23 +50,18 @@ export async function load(url, context, nextLoad) {
     }
   }
 
-  if (url.includes('data:text/javascript;,"blob:nodedata:')) {
-    const blobUrl = url.slice(-51, -1)
-
+  if (url.startsWith('blob:')) {
     // use broadcast channel to ask main thread to resolve blob
-    bc.postMessage(blobUrl)
+    bc.postMessage(url)
     const source = await new Promise(rs => {
       // Don't remove or or hell will break loose
       setTimeout(() => {}, 100)
 
-      function listener (evt) {
-        if (evt.data.url === blobUrl) {
+      bc.addEventListener('message', evt => {
+        if (evt.data.url === url) {
           rs(evt.data.source)
-          bc.removeEventListener('message', listener)
         }
-      }
-
-      bc.addEventListener('message', listener)
+      })
     })
 
     return {

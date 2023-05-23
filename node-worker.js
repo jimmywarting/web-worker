@@ -1,6 +1,6 @@
 import { Worker as NodeWorker, BroadcastChannel, receiveMessageOnPort } from 'node:worker_threads'
 import { resolveObjectURL, Buffer } from 'node:buffer'
-import { execArgv, cwd, version } from 'node:process'
+import { cwd } from 'node:process'
 
 /**
  * A synchronous FileReader implementation that uses a Web Worker to read the
@@ -38,16 +38,9 @@ let createBlobReader = () => {
   return blobReader
 }
 
-const major = +version.slice(1).split('.')[0]
-let loaderPath = './loader.js'
+const loaderPath = './node-loader-v18.js'
 
-if ([16, 17].includes(major)) {
-  loaderPath = './node-loader-v16.js'
-  const { Blob } = await import('node:buffer')
-  globalThis.Blob = Blob
-} else if ([18, 19, 20].includes(major)) {
-  loaderPath = './node-loader-v18.js'
-}
+globalThis.Blob ??= await import('node:buffer').then(({ Blob }) => Blob)
 
 // Create a BroadcastChannel to listen for messages containing blob URLs and
 // respond with the contents of those blobs to loaders so that
@@ -129,16 +122,16 @@ const WebWorker = class Worker extends EventTarget {
    * @param {string} [name] - A name for the worker (not used in this implementation).
    */
   #loadModule (url, name) {
-    const preRun = new URL('./pre-run.js', import.meta.url).toString()
+    const preInstall = new URL('./pre-run.js', import.meta.url).toString()
 
     // If the URL protocol is blob or https, convert it to a data: URL with import(url)
     if (url.protocol === 'blob:') {
       const blobReader = createBlobReader()
-      const code = `import '${preRun}'\n` + blobReader(`${url}`)
+      const code = `import '${preInstall}'\n` + blobReader(`${url}`)
       const b64 = Buffer.from(code).toString('base64')
       url = new URL('data:text/javascript;base64,' + b64)
     } else {
-      url = new URL(`data:text/javascript,import '${preRun}';await import('${url}');`)
+      url = new URL(`data:text/javascript,import '${preInstall}';await import('${url}');`)
     }
 
     const loader = new URL(
