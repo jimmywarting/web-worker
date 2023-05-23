@@ -1,15 +1,20 @@
-import test, * as t from 'node:test'
+// import test, * as t from 'node:test'
 import assert from 'node:assert'
 import Worker from '../node-worker.js'
+import { test } from 'node:test'
+import t from 'node:test'
+import { version } from 'node:process'
+
+const major = +version.slice(1, 3)
 
 const url = new URL('./fixtures/worker.js', import.meta.url)
 const one = (worker, t = 'message') => new Promise(rs => worker.addEventListener(t, rs, { once: true }))
 const code = code => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
 
-
 t.describe('Code evaluation', () => {
   test('Basic module usage', async t => {
     const worker = new Worker(url, { type: 'module' })
+    // worker.onmessage = console.log
     const num = (await one(worker)).data
     worker.terminate()
     assert.equal(num, 42, 'should have received a message event')
@@ -36,11 +41,36 @@ t.describe('Code evaluation', () => {
     assert.equal(data, 387, 'should have received a message event')
   })
 
+  // TODO: fix this experimental http loader in NodeJS v20+
   test('http:', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
     const url = 'https://raw.githubusercontent.com/elcuervo/wire/8a219697c560ac156ea8dc24fa1f5296091d51b4/test/worker.js'
     const worker = new Worker(url, { type: 'module' })
     const {data} = await one(worker)
     assert.equal(data, 1, 'should have received a message event')
+  })
+
+  // Hard to test, need to look manually above this test result
+  test('logs in correct order', async t => {
+    const ab = new SharedArrayBuffer(4)
+    const int32 = new Int32Array(ab)
+    const url = code`
+      console.log('comes first')
+      self.onmessage = evt => {
+        const int32 = new Int32Array(evt.data)
+        Atomics.store(int32, 0, 42)
+        Atomics.notify(int32, 0)
+      }
+    `
+    const sleep = ms => new Promise(rs => setTimeout(rs, ms))
+    const worker = new Worker(url, { type: 'module' })
+    worker.onerror = console.log
+    await sleep(1000)
+    worker.postMessage(ab)
+    Atomics.wait(int32, 0, 0, 2100)
+    console.log('comes second')
+    worker.terminate()
   })
 
   test('invalid code dispatch eventListener', async t => {
@@ -125,7 +155,7 @@ t.describe('Worker thread', () => {
     assert.equal(data, 'hello', 'should have received a message event')
   })
 
-  test('Worker within a Worker', async t => {
+  test('new Worker("blob:url") within a worker', async t => {
     const url = code`
 			const code = 'postMessage(3)'
 			const blob = new Blob([code], { type: 'text/javascript' })
@@ -143,8 +173,10 @@ t.describe('Worker thread', () => {
     assert.equal(data, 3, 'should have received a message event')
   })
 
-	// Requires the use of --experimental-loader path
-  test('testing loaders: https- import', async t => {
+	// TODO: fix this experimental http loader in NodeJS v20+
+  test('import from "https:" within a worker', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
     const url = code`
 			import toUint8 from 'https://raw.githubusercontent.com/jimmywarting/to-uint8array/main/mod.js'
 			postMessage(toUint8('abc'))
@@ -154,5 +186,23 @@ t.describe('Worker thread', () => {
     const { data } = (await one(worker))
 		assert.deepEqual([...data], [97, 98, 99], 'should have received a message event')
 		assert.ok(data instanceof Uint8Array, 'should have received a Uint8Array')
+  })
+
+  // TODO: fix this experimental http loader in NodeJS v20+
+  test('import("blob:") within a worker', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
+    const url = code`
+			const blob = new Blob(['export default 123'], { type: 'text/javascript' })
+      const url = URL.createObjectURL(blob)
+
+      import(url).then(mod => {
+        postMessage(mod.default)
+      })
+		`
+
+    const worker = new Worker(url, { type: 'module' })
+    const { data } = (await one(worker))
+		assert.deepEqual(data, 123, 'should have received a message event')
   })
 })
