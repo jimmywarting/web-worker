@@ -1,11 +1,11 @@
-import { other } from './other.js'
+import { other } from './other.js';
 
-postMessage(other())
+postMessage(other());
 
 self.onmessage = e => {
-  postMessage(['received onmessage', e.data])
-}
+	postMessage(['received onmessage', e.data]);
+};
 
 addEventListener('message', e => {
-  postMessage(['received message event', e.data])
-})
+	postMessage(['received message event', e.data]);
+});

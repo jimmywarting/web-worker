@@ -11,10 +11,10 @@
     "node": "./node-worker.js"
   },
   "engines": {
-    "node": "=>19"
+    "node": "=>16"
   },
   "scripts": {
-    "test": "node --experimental-loader ./loader.js --no-warnings ./test/spec.js"
+    "test": "node ./loader.js --no-warnings ./test/spec.js"
   },
   "repository": {
     "type": "git",
