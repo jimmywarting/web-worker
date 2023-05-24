@@ -1,7 +1,7 @@
 name: Test
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - src/**
       - test/**
@@ -9,7 +9,7 @@ on:
       - "*.ts"
       - .github/workflows/test.yml
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - src/**
       - test/**
@@ -30,6 +30,5 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm test

@@ -3,6 +3,9 @@ import assert from 'node:assert'
 import Worker from '../node-worker.js'
 import { test } from 'node:test'
 import t from 'node:test'
+import { version } from 'node:process'
+
+const major = +version.slice(1, 3)
 
 const url = new URL('./fixtures/worker.js', import.meta.url)
 const one = (worker, t = 'message') => new Promise(rs => worker.addEventListener(t, rs, { once: true }))
@@ -38,7 +41,10 @@ t.describe('Code evaluation', () => {
     assert.equal(data, 387, 'should have received a message event')
   })
 
+  // TODO: fix this experimental http loader in NodeJS v20+
   test('http:', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
     const url = 'https://raw.githubusercontent.com/elcuervo/wire/8a219697c560ac156ea8dc24fa1f5296091d51b4/test/worker.js'
     const worker = new Worker(url, { type: 'module' })
     const {data} = await one(worker)
@@ -167,8 +173,10 @@ t.describe('Worker thread', () => {
     assert.equal(data, 3, 'should have received a message event')
   })
 
-	// Requires the use of --experimental-loader path
+	// TODO: fix this experimental http loader in NodeJS v20+
   test('import from "https:" within a worker', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
     const url = code`
 			import toUint8 from 'https://raw.githubusercontent.com/jimmywarting/to-uint8array/main/mod.js'
 			postMessage(toUint8('abc'))
@@ -180,7 +188,10 @@ t.describe('Worker thread', () => {
 		assert.ok(data instanceof Uint8Array, 'should have received a Uint8Array')
   })
 
+  // TODO: fix this experimental http loader in NodeJS v20+
   test('import("blob:") within a worker', async t => {
+    if (major >= 20) return t.skip('Not supported in Node.js')
+
     const url = code`
 			const blob = new Blob(['export default 123'], { type: 'text/javascript' })
       const url = URL.createObjectURL(blob)
