@@ -44,9 +44,9 @@ import "whatwg-worker";
 
 // 💡 You can use 'new URL()' or 'import.meta.resolve()' to pass a URL relative
 // to the current file! Otherwise, it'd be relative to 'process.cwd()'.
-const worker = new Worker(new URL("worker.js", import.meta.url));
-worker.postMessage("Hello!");
-worker.onmessage = (e) => console.log("[main]", e.data);
+const hi = new Worker(new URL("hi.js", import.meta.url), { type: "module" });
+hi.postMessage("Hello!");
+hi.onmessage = (e) => console.log("[main]", e.data);
 //=> [worker] Hello!
 //=> [main] Hi!
 ```
@@ -54,6 +54,7 @@ worker.onmessage = (e) => console.log("[main]", e.data);
 <td>
 
 ```js
+// hi.js
 postMessage("Hi!");
 onmessage = (e) => console.log("[worker]", e.data);
 ```
@@ -79,11 +80,11 @@ import "whatwg-worker";
 const js = `console.log(42)`;
 
 const data = "data:text/javascript," + encodeURIComponent(js);
-const worker1 = new Worker(data);
+const worker1 = new Worker(data, { type: "module" });
 //=> 42
 
 const blob = URL.createObjectURL(new Blob([js], { type: "text/javascript" }));
-const worker2 = new Worker(blob);
+const worker2 = new Worker(blob, { type: "module" });
 //=> 42
 ```
 
@@ -102,33 +103,33 @@ Node.js provides a native name-clashing implementation of the `Worker` class
 that isn't _quite_ the same as the browser `Worker` class. Here's a brief
 comparison of Node.js' `worker.Worker` vs our `Worker` class:
 
-1. `worker.Worker` extends the Node.js `EventEmitter` instead of `EventTarget`.
-   It also provides the event's data directly as arguments instead of wrapped in
-   an `Event` object. We use `EventTarget` and proper spec-compliant
-   `MessageEvent` instances just like browsers.
-2. `worker.Worker` supports `spawn()`-like options like `argv` and `env`. Our
-   own web `Worker` class doesn't support this.[^1]
-3. `worker.Worker` allows direct `new Worker("console.log()", { eval: true })`
-   script execution. Be warned that it's a global `eval()`-like context, not a
-   module context. You can achieve a similar effect with web workers using
-   `data:` or `blob:` URLs.
-4. `worker.Worker` doesn't support `.onmessage = ...`. This is common among most
-   Node.js APIs.
-5. When a new worker thread is spawned by `new worker.Worker()`, it is just a
-   regular Node.js global scope. There's no `.postMessage()` to talk to the
-   parent; you have to import that from `node:worker_threads` yourself! We make
-   the global scope an instance of `DedicatedWorkerGlobalScope` just like
-   browsers do.
+- `worker.Worker` extends the Node.js `EventEmitter` instead of `EventTarget`.
+  It also provides the event's data directly as arguments instead of wrapped in
+  an `Event` object. We use `EventTarget` and proper spec-compliant
+  `MessageEvent` instances just like browsers.
+- `worker.Worker` supports `spawn()`-like options like `argv` and `env`. Our own
+  web `Worker` class doesn't support this.[^1]
+- `worker.Worker` allows direct `new Worker("console.log()", { eval: true })`
+  script execution. Be warned that it's a global `eval()`-like context, not a
+  module context. You can achieve a similar effect with web workers using
+  `data:` or `blob:` URLs.
+- `worker.Worker` doesn't support `.onmessage = ...`. This is common among most
+  Node.js APIs.
+- When a new worker thread is spawned by `new worker.Worker()`, it is just a
+  regular Node.js global scope. There's no `.postMessage()` to talk to the
+  parent; you have to import that from `node:worker_threads` yourself! We make
+  the global scope an instance of `DedicatedWorkerGlobalScope` just like
+  browsers do.
 
 ## Spec compliance
 
-We don't implement the entirety of the [`Worker`-related parts of the HTML
-spec]. There's no `WorkerNavigator` or `WorkerLocation`. There's also no
-`importScripts()`. We also don't provide the related `online`, `offline`, or
-`languagechange` events.
-
-⚠️ `importScripts()` will not work! You can use `require()` in non-ESM workers,
-but be warned that we don't provide an `importScripts()` function.
+- We don't provide a `.navigator` `WorkerNavigator` implementation
+- We don't provide a `.location` `WorkerLocation` implementation
+- There is no `online` event or `ononline` handler attribute
+- There is no `offline` event or `onoffline` handler attribute
+- There is no `languagechange` event or `onlanguagechange` handler attribute
+- The `importScripts()` function _works_, but remember it's relative to the root
+  script (the one from `new Worker(scriptURL)`), not the current script.
 
 Here's a rundown of the Web IDL that we expose in the polyfill:
 
@@ -157,6 +158,7 @@ interface mixin AbstractWorker {
 [Exposed=Worker]
 interface WorkerGlobalScope : EventTarget {
   readonly attribute WorkerGlobalScope self;
+  undefined importScripts(USVString... urls);
 
   attribute OnErrorEventHandler onerror;
   attribute EventHandler onrejectionhandled;
