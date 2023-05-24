@@ -168,6 +168,9 @@ interface WorkerGlobalScope : EventTarget {
 
 ## Development
 
+![JavaScript](https://img.shields.io/static/v1?style=for-the-badge&message=JavaScript&color=222222&logo=JavaScript&logoColor=F7DF1E&label=)
+![Node.js](https://img.shields.io/static/v1?style=for-the-badge&message=Node.js&color=339933&logo=Node.js&logoColor=FFFFFF&label=)
+
 This project uses JSDoc with `tsc` to perform type checking. We do still
 generate `.d.ts` files at build time, don't worry! To get started with our dev
 loop, you can open this repo in your favorite IDE and run `npm start`. If you
