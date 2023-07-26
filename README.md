@@ -1,160 +1,188 @@
-<h1 align="center">
-  Web Worker
-</h1>
-<p align="center">
-  Native cross-platform Web Workers. Works in published npm modules.
-</p>
+# Web `Worker` polyfill for Node.js
 
-**In Node**, it's a web-compatible Worker implementation atop Node's [worker_threads](https://nodejs.org/api/worker_threads.html).
+👷‍♂️ A spec-compliant `Worker` class for Node.js
 
-**In the browser** (and when bundled for the browser), it's simply an alias of `Worker`.
+<div align="center">
 
-### Features
+![](https://picsum.photos/600/400)
 
-_Here's how this is different from worker_threads:_
+</div>
 
-- makes Worker code compatible across browser, Node and Deno
-- only supports Module Workers (`{type:'module'}`)
-- uses DOM-style events (`Event.data`, `Event.type`, `MessageEvent`, etc)
-- supports event handler properties (`worker.onmessage=..`)
-- `Worker()` accepts a URL, Blob URL or Data URL (via loaders)
-- emulates browser-style [WorkerGlobalScope] within the worker
-- Worker thread can import `data:`, `https:`, `blob:`, `file:` files just fine
- - Worker constructed also supports those too `new Worker('https://...')`
+📜 Implements [the `Worker` class from the HTML specification] \
+🦄 Supports ponyfilling instead of polyfilling \
+🧊 Isomorphically exports the normal `Worker` global in browsers & Deno \
+📦 Supports `{ type: "module" }` workers \
+⚠️ Doesn't provide `WorkerNavigator` or `WorkerLocation`
 
-### Usage Example
+## Installation
 
-In its simplest form:
+![npm](https://img.shields.io/static/v1?style=for-the-badge&message=npm&color=CB3837&logo=npm&logoColor=FFFFFF&label=)
+![Yarn](https://img.shields.io/static/v1?style=for-the-badge&message=Yarn&color=2C8EBB&logo=Yarn&logoColor=FFFFFF&label=)
+![pnpm](https://img.shields.io/static/v1?style=for-the-badge&message=pnpm&color=222222&logo=pnpm&logoColor=F69220&label=)
 
-```js
-import Worker from 'whatwg-worker'
+Normally, you'll want to use this package in a Node.js environment. If you
+import it using an npm CDN like [ESM>CDN] or [jsDelivr], you'll just be getting
+the native global `Worker` class. You can install it locally for use in Node.js
+using npm, [Yarn], [pnpm], or your other favorite npm-related package manager.
 
-const worker = new Worker('data:text/javascript,postMessage("hello")')
-worker.onmessage = e => console.log(e.data)  // "hello"
+```sh
+npm install whatwg-worker
 ```
 
-<table>
-<thead><tr><th><strong>main.js</strong></th><th><strong>worker.js</strong></th></tr></thead>
-<tbody><tr><td>
+## Usage
+
+![Node.js](https://img.shields.io/static/v1?style=for-the-badge&message=Node.js&color=339933&logo=Node.js&logoColor=FFFFFF&label=)
+
+The easiest way to use this package is just to import it as a polyfill. This
+will add the `Worker` class to the global scope just like in the browser.
+
+<table><td>
 
 ```js
-import Worker from 'whatwg-worker'
+// app.js
+import "whatwg-worker";
 
-const url = new URL('./worker.js', import.meta.url)
-const worker = new Worker(url)
-
-worker.addEventListener('message', e => {
-  console.log(e.data)  // "hiya!"
-})
-
-worker.postMessage('hello')
+// 💡 You can use 'new URL()' or 'import.meta.resolve()' to pass a URL relative
+// to the current file! Otherwise, it'd be relative to 'process.cwd()'.
+const hi = new Worker(new URL("hi.js", import.meta.url), { type: "module" });
+hi.postMessage("Hello!");
+hi.onmessage = (e) => console.log("[main]", e.data);
+//=> [worker] Hello!
+//=> [main] Hi!
 ```
 
-</td><td valign="top">
+<td>
 
 ```js
-addEventListener('message', e => {
-  if (e.data === 'hello') {
-    postMessage('hiya!')
-  }
-})
+// hi.js
+postMessage("Hi!");
+onmessage = (e) => console.log("[worker]", e.data);
 ```
 
-</td></tr></tbody>
 </table>
 
-👉 Notice how `new URL('./worker.js', import.meta.url)` is used above to load the worker relative to the current module instead of the application base URL. Without this, Worker URLs are relative to a document's URL, which in Node.js is interpreted to be `process.cwd()`.
+ℹ Make sure your bundler supports the `new URL("...", import.meta.url)` or
+`import.meta.resolve()` pattern! We recommend [Vite] which supports
+`new Worker(new URL("...", import.meta.url))` out of the box! ❤️
 
-> _Support for this pattern in build tools and test frameworks is still limited. We are [working on growing this](https://github.com/developit/web-worker/issues/4)._
+If you're authoring a library, or you want to avoid tampering with globals, you
+can also just import the `Worker` class from the `whatwg-worker/ponyfill.js`
+export. The ponyfill will **not** apply the `WorkerGlobalScope` polyfill to any
+workers that you instantiate witht it! You'll still need to
+`import { parentPort } from "node:worker_threads"` to communicate with the
+parent thread.
 
-### Module Workers
-
-Module Workers are supported in Node 12.8+ using this plugin, leveraging Node's native ES Modules support.
-In the browser, they can be used natively in Chrome 80+, or in all browsers via [worker-plugin] or [rollup-plugin-off-main-thread]. As with classic workers, there is no difference in usage between Node and the browser:
-
-<table>
-<thead><tr><th><strong>main.js</strong></th><th><strong>worker.js</strong></th></tr></thead>
-<tbody><tr><td>
-
-```js
-import Worker from 'whatwg-worker'
-
-const worker = new Worker(
-  new URL('./worker.js', import.meta.url),
-  { type: 'module' }
-)
-worker.addEventListener('message', e => {
-  console.log(e.data)  // "200 OK"
-})
-worker.postMessage('https://httpstat.us/200')
-```
-
-</td><td valign="top">
+We also support `data:` and `blob:` URLs! 🙌
 
 ```js
-addEventListener('message', async e => {
-  const url = e.data
-  const res = await fetch(url)
-  const text = await res.text()
-  postMessage(text)
-})
+import "whatwg-worker";
+
+const js = `console.log(42)`;
+
+const data = "data:text/javascript," + encodeURIComponent(js);
+const worker1 = new Worker(data, { type: "module" });
+//=> 42
+
+const blob = URL.createObjectURL(new Blob([js], { type: "text/javascript" }));
+const worker2 = new Worker(blob, { type: "module" });
+//=> 42
 ```
 
-</td></tr></tbody>
-</table>
+💡 If you're looking for a more ergonomic cross-thread interface, check out
+[GoogleChromeLabs/comlink] or [developit/greenlet]!
 
+If you want to enable HTTP imports to be more like browsers, you can use the
+`--experimental-network-imports` flag! Be warned that native `node:` imports
+will throw if imported from `http:` URLs.
 
-### Data URLs
+📚 [HTTPS and HTTP imports | Node.js v20.2.0 Documentation]
 
-Instantiating Worker using a Data URL is supported in both module and classic workers:
+### Differences from `import { Worker } from "node:worker_threads"`
 
-```js
-import Worker from 'whatwg-worker'
+Node.js provides a native name-clashing implementation of the `Worker` class
+that isn't _quite_ the same as the browser `Worker` class. Here's a brief
+comparison of Node.js' `worker.Worker` vs our `Worker` class:
 
-const worker = new Worker(`data:application/javascript,postMessage(42)`)
-worker.addEventListener('message', e => {
-  console.log(e.data)  // 42
-})
+- `worker.Worker` extends the Node.js `EventEmitter` instead of `EventTarget`.
+  It also provides the event's data directly as arguments instead of wrapped in
+  an `Event` object. We use `EventTarget` and proper spec-compliant
+  `MessageEvent` instances just like browsers.
+- `worker.Worker` supports `spawn()`-like options like `argv` and `env`. Our own
+  web `Worker` class doesn't support this.[^1]
+- `worker.Worker` allows direct `new Worker("console.log()", { eval: true })`
+  script execution. Be warned that it's a global `eval()`-like context, not a
+  module context. You can achieve a similar effect with web workers using
+  `data:` or `blob:` URLs.
+- `worker.Worker` doesn't support `.onmessage = ...`. This is common among most
+  Node.js APIs.
+- When a new worker thread is spawned by `new worker.Worker()`, it is just a
+  regular Node.js global scope. There's no `.postMessage()` to talk to the
+  parent; you have to import that from `node:worker_threads` yourself! We make
+  the global scope an instance of `DedicatedWorkerGlobalScope` just like
+  browsers do.
+
+## Spec compliance
+
+- We don't provide a `.navigator` `WorkerNavigator` implementation
+- We don't provide a `.location` `WorkerLocation` implementation
+- There is no `online` event or `ononline` handler attribute
+- There is no `offline` event or `onoffline` handler attribute
+- There is no `languagechange` event or `onlanguagechange` handler attribute
+- The `importScripts()` function _works_, but remember it's relative to the root
+  script (the one from `new Worker(scriptURL)`), not the current script.
+
+Here's a rundown of the Web IDL that we expose in the polyfill:
+
+```webidl
+[Exposed=*]
+interface Worker : EventTarget {
+  constructor(USVString scriptURL, optional WorkerOptions options = {});
+
+  undefined terminate();
+
+  undefined postMessage(any message, sequence<object> transfer);
+  undefined postMessage(any message, optional StructuredSerializeOptions options = {});
+  attribute EventHandler onmessage;
+  attribute EventHandler onmessageerror;
+};
+dictionary WorkerOptions {
+  WorkerType type = "classic";
+  DOMString name = "";
+};
+enum WorkerType { "classic", "module" };
+Worker includes AbstractWorker;
+interface mixin AbstractWorker {
+  attribute EventHandler onerror;
+};
+
+[Exposed=Worker]
+interface WorkerGlobalScope : EventTarget {
+  readonly attribute WorkerGlobalScope self;
+  undefined importScripts(USVString... urls);
+
+  attribute OnErrorEventHandler onerror;
+  attribute EventHandler onrejectionhandled;
+  attribute EventHandler onunhandledrejection;
+};
 ```
 
-### Blob URLs
+## Development
 
-Instantiating Worker using a Blob URL is supported
+![JavaScript](https://img.shields.io/static/v1?style=for-the-badge&message=JavaScript&color=222222&logo=JavaScript&logoColor=F7DF1E&label=)
+![Node.js](https://img.shields.io/static/v1?style=for-the-badge&message=Node.js&color=339933&logo=Node.js&logoColor=FFFFFF&label=)
 
-```js
-import Worker from 'whatwg-worker'
+This project uses JSDoc with `tsc` to perform type checking. We do still
+generate `.d.ts` files at build time, don't worry! To get started with our dev
+loop, you can open this repo in your favorite IDE and run `npm start`. If you
+want to get started quickly, you can use [GitHub Codespaces]. This will start
+the Node.js test runner (yes, Node.js has a builtin `--test` flag now!) in watch
+mode. Make some changes or add some tests and see what happens!
 
-const code = 'import fs from "node:fs"'
-const blob = new Blob([code], { type: 'text/javascript' })
-const worker = new Worker(URL.createObjectURL(blob))
-```
-
-### HTTP loader supported.
-
-Worker gets added https- loader support via `--loader` flag
-
-```js
-import Worker from 'whatwg-worker'
-
-const code = 'import xyz from "https://example.com/main.js"'
-const blob = new Blob([code], { type: 'text/javascript' })
-const worker = new Worker(URL.createObjectURL(blob))
-```
-
-```js
-import Worker from 'whatwg-worker'
-
-const url = 'https://example.com/main.js'
-const worker = new Worker(url)
-```
-
-
-# Worker global scope
-
-Each time when creating a new Worker it will get assigned some new global variables
-including
-- name
-- Worker (to create worker within a worker)
-- self
-- postMessage
-- and `globalThis` will be inherit `EventTarget` (addEventListener, remove and dispatch)
+<!-- prettier-ignore-start -->
+[HTTPS and HTTP imports | Node.js v20.2.0 Documentation]: https://nodejs.org/api/esm.html#https-and-http-imports
+[GitHub Codespaces]: https://github.com/features/codespaces
+[GoogleChromeLabs/comlink]: https://github.com/GoogleChromeLabs/comlink#readme
+[developit/greenlet]: https://github.com/developit/greenlet#readme
+[the `Worker` class from the HTML specification]: https://html.spec.whatwg.org/multipage/workers.html#dedicated-workers-and-the-worker-interface
+[`Worker`-related parts of the HTML spec]: https://html.spec.whatwg.org/multipage/workers.html
+<!-- prettier-ignore-end -->
